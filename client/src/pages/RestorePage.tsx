@@ -16,14 +16,25 @@ export function RestorePage() {
  const [job,setJob]=useState<RestoreJob|null>(null);
  const pick=useRef<HTMLInputElement>(null);
  const change=(key:keyof typeof initial,value:string|number)=>setForm(s=>({...s,[key]:value}));
- const valid=/^[a-z]{20}$/.test(form.projectRef)&&!!form.host&&!!form.password&&!!form.user&&!!file&&file.name.toLowerCase().endsWith('.dump')&&file.size>100;
+ const refValid=/^[a-z]{20}$/.test(form.projectRef);
+ const duplicateRef=form.projectRef.length===40&&form.projectRef.slice(0,20)===form.projectRef.slice(20);
+ const issues=[
+  !refValid ? 'El Project Ref debe contener exactamente 20 letras minúsculas. Actualmente tiene '+form.projectRef.length+'.' : '',
+  !form.host.trim() ? 'Ingresá el host PostgreSQL de destino.' : '',
+  !(form.port>=1&&form.port<=65535) ? 'El puerto debe estar entre 1 y 65535.' : '',
+  !form.user.trim() ? 'Ingresá el usuario PostgreSQL.' : '',
+  form.user.trim()&&refValid&&form.user!=='postgres.'+form.projectRef&&form.user!=='postgres' ? 'El usuario debe corresponder al Project Ref de destino.' : '',
+  !form.password ? 'Ingresá la contraseña de PostgreSQL.' : '',
+  !file ? 'Seleccioná un archivo .dump.' : file.name.toLowerCase().endsWith('.dump')&&file.size>100 ? '' : 'Seleccioná un archivo .dump válido, no vacío.',
+ ].filter(Boolean);
+ const valid=issues.length===0;
  useEffect(()=>{
   if(!job||!['queued','running'].includes(job.state))return;
   let live=true;
   const interval=setInterval(()=>void fetchRestore(job.id).then(next=>{if(live)setJob(next)}).catch(e=>{if(live)setError(e instanceof Error?e.message:String(e))}),1200);
   return()=>{live=false;clearInterval(interval)};
  },[job?.id,job?.state]);
- function requestConfirmation(event:FormEvent){event.preventDefault();setError('');if(valid)setConfirmOpen(true)}
+ function requestConfirmation(event:FormEvent){event.preventDefault();setError('');if(valid)setConfirmOpen(true);else setError(issues.join(' '))}
  async function execute(){
   if(!file||form.confirmation!==form.projectRef||busy)return;
   setBusy(true);setError('');
@@ -44,7 +55,7 @@ export function RestorePage() {
    <section className="panel"><div className="panel-head"><h2>Configuración de restauración</h2><p>Datos del proyecto de destino · Supabase → Connect</p></div>
     <form className="panel-body" onSubmit={requestConfirmation}>
       <div className="fields">
-       <div className="wide"><Field label="Project Ref de destino" required icon={<Database size={15}/>} placeholder="abcdefghijklmnopqrst" value={form.projectRef} onChange={e=>{const ref=e.target.value.toLowerCase().trim();setForm(s=>({...s,projectRef:ref,user:!s.user||s.user.startsWith('postgres.')?'postgres.'+ref:s.user,confirmation:''}))}}/></div>
+       <div className="wide"><Field label="Project Ref de destino" required icon={<Database size={15}/>} placeholder="abcdefghijklmnopqrst" value={form.projectRef} onChange={e=>{const ref=e.target.value.toLowerCase().trim();setError('');setForm(s=>({...s,projectRef:ref,user:!s.user||s.user.startsWith('postgres.')?'postgres.'+ref:s.user,confirmation:''}))}} hint="Lo encontrás en la URL del proyecto de Supabase. Debe tener exactamente 20 letras."/>{form.projectRef&&!refValid&&<motion.div className="restore-validation" role="alert" initial={{opacity:0,y:-5}} animate={{opacity:1,y:0}} transition={{duration:.2}}>El Project Ref ingresado tiene {form.projectRef.length} caracteres; debe tener 20.{duplicateRef&&<button type="button" className="restore-fix-ref" onClick={()=>{const ref=form.projectRef.slice(0,20);setForm(s=>({...s,projectRef:ref,user:'postgres.'+ref,confirmation:''}));setError('')}}>Detecté un valor repetido. Usar una sola vez el Ref</button>}</motion.div>}</div>
        <Field label="Host PostgreSQL" required icon={<Server size={15}/>} placeholder="aws-1-us-east-2.pooler.supabase.com" value={form.host} onChange={e=>change('host',e.target.value)}/>
        <Field label="Puerto" required icon={<Wifi size={15}/>} type="number" min="1" max="65535" value={form.port} onChange={e=>change('port',Number(e.target.value))} hint="Por defecto 6543, igual que tu comando original."/>
        <Field label="Usuario PostgreSQL" required icon={<KeyRound size={15}/>} value={form.user} onChange={e=>change('user',e.target.value)} placeholder="postgres.PROJECT_REF"/>
@@ -53,7 +64,7 @@ export function RestorePage() {
       <div className="section-title">Archivo de respaldo</div>
       <input ref={pick} type="file" accept=".dump" className="visually-hidden" onChange={e=>setFile(e.target.files?.[0]||null)}/>
       <button type="button" className="restore-file" onClick={()=>pick.current?.click()}><FileArchive size={22}/><span><strong>{file?file.name:'Seleccionar archivo .dump'}</strong><small>{file?(file.size/1024/1024).toFixed(2)+' MB':'Archivo custom generado con pg_dump -Fc · Hasta 2 GB'}</small></span><HardDriveUpload size={17}/></button>
-      <div className="actions"><button type="submit" className="btn primary" disabled={!valid||running||busy}><HardDriveUpload size={16}/>Restaurar respaldo</button></div>
+      <div className="actions"><button type="submit" className="btn primary" disabled={running||busy}><HardDriveUpload size={16}/>Restaurar respaldo</button></div><AnimatePresence initial={false}>{!valid&&!running&&!busy&&<motion.div className="restore-form-hint" key="restore-form-hint" initial={{opacity:0,y:-4}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-4}} transition={{duration:.2}}>Para continuar: {issues[0]}</motion.div>}</AnimatePresence>
       <AnimatePresence>{error&&<motion.div className="message error" role="alert" initial={{opacity:0,y:-5,height:0}} animate={{opacity:1,y:0,height:'auto'}} exit={{opacity:0,y:-5,height:0}} transition={{duration:.2}}>{error}</motion.div>}</AnimatePresence>
     </form>
    </section>

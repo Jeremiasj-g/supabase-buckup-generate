@@ -104,3 +104,9 @@ strong,b,h1,h2,h3,h4,h5,h6{font-weight:600}
 .restore-grid{scroll-margin-top:30px}
 @media(max-width:760px){.restore-dialog{padding:22px}.restore-alert{margin:22px 0}}
 @media(prefers-reduced-motion:reduce){.restore-file{transition:none}}
+
+/* Mensajes de validación de restauración visibles y sin bloquear sin explicación */
+.restore-validation{margin:9px 0 0;font-size:11px;color:#e7a45a;line-height:1.5}
+.restore-fix-ref{margin-top:8px;display:block;text-align:left;border:1px solid var(--sb-border);border-radius:8px;background:var(--sb-surface);color:var(--sb-green-hover);padding:8px 11px;font-size:11px;font-weight:500;transition:background .2s,border-color .2s}
+.restore-fix-ref:hover{background:var(--sb-active);border-color:var(--sb-green)}
+.restore-form-hint{margin-top:12px;font-size:11px;color:var(--sb-muted);line-height:1.5}
