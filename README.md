@@ -62,3 +62,11 @@ package.json
 ## Primera etapa: mismo respaldo que PowerShell
 
 El modo predeterminado no ejecuta Supabase CLI ni solicita un Access Token. Requiere únicamente `pg_dump` en el PATH. `psql` sirve para el botón de prueba y `pg_restore` para la verificación adicional, si están disponibles. La URI `--dbname` redundante se sustituyó por `-d postgres` + `PGSSLMODE=require` para evitar pasar dos veces el nombre de base. El archivo generado se descarga como `.dump` sin comprimirlo en ZIP. Si `pg_dump` funciona, el respaldo no depende de las Edge Functions.
+
+## Descarga de archivos (corrección de noviembre de 2026)
+
+Para evitar errores al descargar desde carpetas sincronizadas, los respaldos se escriben ahora en la **carpeta temporal local del sistema operativo** (`os.tmpdir()/supabase-backup-manager`), fuera del workspace de OneDrive. El servidor valida la existencia y el tamaño del archivo antes de marcar el trabajo al 100% y antes de servir la descarga. El endpoint sirve el archivo mediante un stream HTTP con encabezados de descarga y devuelve un error JSON legible si desapareció.
+
+**Después de actualizar, reiniciá el servidor y generá un respaldo nuevo.** Los trabajos anteriores vivían en memoria y sus archivos pudieron haber desaparecido; no se recuperan automáticamente.
+
+Las animaciones de interfaz y checks duran 200 ms y respetan la preferencia de movimiento reducido del sistema.

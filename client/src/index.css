@@ -23,3 +23,20 @@ html,body,.layout{background:var(--sb-bg);color:var(--sb-text);transition:backgr
 :root[data-theme="dark"] .message.error{background:#44231f;color:#ffada4}
 @media(max-width:760px){.theme-switch span{display:none}.top-actions{gap:8px}.theme-switch{width:38px;padding:8px}}
 @media(prefers-reduced-motion:reduce){html,body,.layout,.choice,.theme-switch{transition:none}}
+
+/* Animaciones discretas de 0.2 s para la interfaz y los cambios de estado */
+:root{--ui-motion:.2s}
+.step{transition:background-color var(--ui-motion) ease,opacity var(--ui-motion) ease}
+.mark{transition:background-color var(--ui-motion) ease,border-color var(--ui-motion) ease,color var(--ui-motion) ease,transform var(--ui-motion) ease}
+.mark-content{display:grid;place-items:center;animation:status-appear var(--ui-motion) ease-out both}
+.step-done .mark{transform:scale(1.025)}
+.choice,.summary-item,.btn,.nav,.field,.input-wrap,.panel,.theme-switch{transition:background-color var(--ui-motion) ease,border-color var(--ui-motion) ease,color var(--ui-motion) ease,box-shadow var(--ui-motion) ease,transform var(--ui-motion) ease}
+.choice input{transition:accent-color var(--ui-motion) ease,transform var(--ui-motion) ease}
+.choice input:checked{transform:scale(1.08)}
+.choice:hover{transform:translateY(-1px)}
+.btn:active:not(:disabled){transform:scale(.985)}
+.message,.download{animation:ui-fade-in var(--ui-motion) ease-out both}
+.progress .track div{transition:width var(--ui-motion) ease,background-color var(--ui-motion) ease}
+@keyframes status-appear{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
+@keyframes ui-fade-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.mark,.mark-content,.step,.choice,.summary-item,.btn,.nav,.field,.input-wrap,.panel,.message,.download,.theme-switch,.progress .track div{animation:none!important;transition:none!important;transform:none!important}}

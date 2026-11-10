@@ -1,53 +1,170 @@
 import { createWriteStream } from 'node:fs';
-import { copyFile, mkdir,rm,readdir,stat,writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, rm, readdir, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import archiver from 'archiver';
-import { dump,type Connection } from './database.js';
+import { dump, type Connection } from './database.js';
 import { downloadFunctions } from './edge-functions.js';
 
-export type Input=Connection&{projectRef:string;accessToken:string;database:boolean;functions:boolean};
-export type Job={id:string;state:'queued'|'running'|'completed'|'failed';step:string;progress:number;logs:string[];error?:string;filename?:string;path?:string};
-const jobs=new Map<string,Job>();let running=false;const base=join(process.cwd(),'.backups');
-export const findJob=(id:string)=>jobs.get(id);
-export function publicJob(j:Job){const {path,...safe}=j;return safe}
-function advance(j:Job,step:string,progress:number){j.step=step;j.progress=progress;j.logs.push(step);if(j.logs.length>30)j.logs.shift()}
-export function start(input:Input){if(running)throw new Error('Ya existe un backup en curso');running=true;const j:Job={id:randomUUID(),state:'queued',step:'Preparando',progress:0,logs:[]};jobs.set(j.id,j);void perform(j,input).finally(()=>{running=false});return j}
-async function zip(source:string,target:string){await new Promise<void>((resolve,reject)=>{const file=createWriteStream(target);const arch=archiver('zip',{zlib:{level:6}});file.on('close',resolve);file.on('error',reject);arch.pipe(file);arch.directory(source,false);void arch.finalize()})}
-function stamp(){const d=new Date();const pad=(x:number)=>String(x).padStart(2,'0');return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes())}
-async function perform(j:Job,input:Input){
- const folder=join(base,j.id);
- try{
-  j.state='running';await mkdir(folder,{recursive:true});advance(j,'Preparando archivos',15);
-  const dumpName='supabase_backup_'+stamp()+'.dump';
-  if(input.database){
-   advance(j,'Ejecutando pg_dump con los parámetros originales',30);
-   await dump(input,join(folder,dumpName));advance(j,'PostgreSQL respaldado correctamente',60);
-  }else advance(j,'PostgreSQL no seleccionado',60);
+export type Input = Connection & {
+  projectRef: string;
+  accessToken: string;
+  database: boolean;
+  functions: boolean;
+};
 
-  // Caso principal: respaldo idéntico en formato al comando original, sin ZIP ni token.
-  if(input.database&&!input.functions){
-   advance(j,'Preparando descarga directa del archivo .dump',94);
-   j.filename=dumpName;j.path=join(base,j.id+'.dump');
-   await copyFile(join(folder,dumpName),j.path);
-  }else{
-   if(input.functions){
-    advance(j,'Descargando Edge Functions (opcional)',69);
-    await downloadFunctions(input.projectRef,input.accessToken,folder);
-    advance(j,'Edge Functions descargadas',88);
-   }
-   await writeFile(join(folder,'manifest.json'),JSON.stringify({
-    projectRef:input.projectRef,createdAt:new Date().toISOString(),
-    components:{database:input.database,functions:input.functions},
-    notIncluded:['Storage objects','Secrets','Auth external settings']
-   },null,2));
-   advance(j,'Comprimiendo archivos',94);
-   j.filename='supabase_backup_'+input.projectRef+'_'+stamp()+'.zip';
-   j.path=join(base,j.id+'.zip');
-   await zip(folder,j.path);
-  }
-  advance(j,'Respaldo disponible para descargar',100);j.state='completed';
- }catch(e){j.state='failed';j.error=e instanceof Error?e.message:String(e);advance(j,'Falló el respaldo',j.progress)}
- finally{await rm(folder,{recursive:true,force:true}).catch(()=>{})}
+export type Job = {
+  id: string;
+  state: 'queued' | 'running' | 'completed' | 'failed';
+  step: string;
+  progress: number;
+  logs: string[];
+  error?: string;
+  filename?: string;
+  path?: string;
+  fileSize?: number;
+};
+
+const jobs = new Map<string, Job>();
+let running = false;
+
+// No guardar archivos temporales en el directorio de trabajo:
+// carpetas sincronizadas como OneDrive pueden interferir con el archivo descargable.
+const backupRoot = join(tmpdir(), 'supabase-backup-manager');
+
+export const findJob = (id: string) => jobs.get(id);
+
+export function publicJob(job: Job) {
+  const { path, ...safe } = job;
+  return safe;
 }
-export async function cleanup(){await mkdir(base,{recursive:true});for(const file of await readdir(base)){if(!file.endsWith('.zip')&&!file.endsWith('.dump'))continue;const path=join(base,file);if(Date.now()-(await stat(path)).mtimeMs>86400000)await rm(path,{force:true})}}
+
+function advance(job: Job, step: string, progress: number) {
+  job.step = step;
+  job.progress = progress;
+  job.logs.push(step);
+  if (job.logs.length > 40) job.logs.shift();
+}
+
+export function start(input: Input) {
+  if (running) throw new Error('Ya existe un backup en curso');
+  running = true;
+  const job: Job = {
+    id: randomUUID(),
+    state: 'queued',
+    step: 'Preparando respaldo',
+    progress: 0,
+    logs: [],
+  };
+  jobs.set(job.id, job);
+  void perform(job, input).finally(() => { running = false; });
+  return job;
+}
+
+function zipFolder(source: string, target: string) {
+  return new Promise<void>((resolve, reject) => {
+    const output = createWriteStream(target, { flags: 'wx' });
+    const zip = archiver('zip', { zlib: { level: 6 } });
+    output.on('close', () => resolve());
+    output.on('error', reject);
+    zip.on('error', reject);
+    zip.pipe(output);
+    zip.directory(source, false);
+    void zip.finalize();
+  });
+}
+
+function timestamp() {
+  const date = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return date.getFullYear()
+    + pad(date.getMonth() + 1)
+    + pad(date.getDate())
+    + '_'
+    + pad(date.getHours())
+    + pad(date.getMinutes());
+}
+
+async function verifyFile(path: string) {
+  const file = await stat(path);
+  if (!file.isFile() || file.size < 100) {
+    throw new Error('El archivo de respaldo no existe o está vacío.');
+  }
+  return file.size;
+}
+
+async function perform(job: Job, input: Input) {
+  const workFolder = join(backupRoot, job.id);
+  let outputPath: string | undefined;
+
+  try {
+    job.state = 'running';
+    await mkdir(workFolder, { recursive: true });
+    advance(job, 'Preparando archivos', 15);
+
+    const dumpName = 'supabase_backup_' + timestamp() + '.dump';
+    if (input.database) {
+      advance(job, 'Ejecutando pg_dump con la configuración original', 30);
+      await dump(input, join(workFolder, dumpName));
+      advance(job, 'Archivo PostgreSQL generado', 60);
+    } else {
+      advance(job, 'PostgreSQL no seleccionado', 60);
+    }
+
+    if (input.database && !input.functions) {
+      // Copiar fuera del directorio de trabajo: se elimina solo la carpeta de trabajo.
+      advance(job, 'Preparando descarga del archivo .dump', 94);
+      outputPath = join(backupRoot, job.id + '.dump');
+      await copyFile(join(workFolder, dumpName), outputPath);
+      job.filename = dumpName;
+    } else {
+      if (input.functions) {
+        advance(job, 'Descargando Edge Functions', 69);
+        await downloadFunctions(input.projectRef, input.accessToken, workFolder);
+        advance(job, 'Edge Functions descargadas', 88);
+      }
+      await writeFile(join(workFolder, 'manifest.json'), JSON.stringify({
+        projectRef: input.projectRef,
+        createdAt: new Date().toISOString(),
+        components: { database: input.database, functions: input.functions },
+        notIncluded: ['Storage objects', 'Secrets', 'Auth external settings'],
+      }, null, 2));
+
+      advance(job, 'Comprimiendo archivos', 94);
+      outputPath = join(backupRoot, job.id + '.zip');
+      job.filename = 'supabase_backup_' + input.projectRef + '_' + timestamp() + '.zip';
+      await zipFolder(workFolder, outputPath);
+    }
+
+    // Nunca avisar 100% hasta comprobar que el archivo descargable existe.
+    const size = await verifyFile(outputPath);
+    job.path = outputPath;
+    job.fileSize = size;
+    job.state = 'completed';
+    advance(job, 'Archivo listo para descargar', 100);
+  } catch (error) {
+    job.state = 'failed';
+    job.error = error instanceof Error ? error.message : String(error);
+    advance(job, 'No se pudo completar el respaldo: ' + job.error, job.progress);
+    if (outputPath) await rm(outputPath, { force: true }).catch(() => {});
+    job.path = undefined;
+  } finally {
+    await rm(workFolder, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+export async function cleanup() {
+  await mkdir(backupRoot, { recursive: true });
+  for (const file of await readdir(backupRoot)) {
+    if (!file.endsWith('.zip') && !file.endsWith('.dump')) continue;
+    const path = join(backupRoot, file);
+    try {
+      if (Date.now() - (await stat(path)).mtimeMs > 24 * 60 * 60 * 1000) {
+        await rm(path, { force: true });
+      }
+    } catch {
+      // Un archivo puede desaparecer durante una limpieza externa.
+    }
+  }
+}
