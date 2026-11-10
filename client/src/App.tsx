@@ -2,7 +2,7 @@ import {useEffect,useState,type FormEvent} from 'react';
 import {AnimatePresence, motion} from 'motion/react';
 import {RestorePage} from './pages/RestorePage';
 import {ProcessActivity} from './components/ProcessActivity';
-import {ArrowDownToLine,CheckCircle2,CloudDownload,Database,Download,ExternalLink,Eye,EyeOff,FolderArchive,HardDrive,KeyRound,Layers3,LoaderCircle,LockKeyhole,Server,ShieldCheck,Terminal,Wifi,Sun,Moon,RotateCcw} from 'lucide-react';
+import {Activity,ArrowDownToLine,CheckCircle2,CloudDownload,Database,Download,ExternalLink,Eye,EyeOff,FolderArchive,HardDrive,KeyRound,Layers3,LoaderCircle,LockKeyhole,Server,ShieldCheck,Terminal,Wifi,Sun,Moon,RotateCcw} from 'lucide-react';
 import {Field} from './components/Field';import{Step}from'./components/Step';import{useBackup}from'./hooks/useBackup';import{download,health,prepareSql,type Payload}from'./services/backup';
 const initial:Payload={projectRef:'',host:'',port:6543,user:'',password:'',accessToken:'',database:true,functions:false};
 export default function App(){
