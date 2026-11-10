@@ -1,5 +1,5 @@
 export type RestoreJob = {
- id:string;state:'queued'|'running'|'completed'|'failed';step:string;progress:number;logs:string[];error?:string;createdAt:string
+ id:string;state:'queued'|'running'|'completed'|'failed';step:string;progress:number;logs:string[];error?:string;createdAt:string;activityCount?:number;currentOperation?:string
 };
 export type RestoreInput={projectRef:string;host:string;port:number;user:string;password:string;confirmation:string;file:File};
 async function parse<T>(response:Response):Promise<T>{

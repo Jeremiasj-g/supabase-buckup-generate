@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { AlertTriangle, CheckCircle2, Database, FileArchive, HardDriveUpload, KeyRound, LoaderCircle, LockKeyhole, Server, ShieldAlert, Wifi } from 'lucide-react';
 import { Field } from '../components/Field';
+import { ProcessActivity } from '../components/ProcessActivity';
 import { createRestore, fetchRestore, type RestoreJob } from '../services/restore';
 
 const initial={projectRef:'',host:'',port:6543,user:'',password:'',confirmation:''};
@@ -72,10 +73,10 @@ export function RestorePage() {
     <div className="steps">
      {['Validar archivo .dump','Conectar al destino','Ejecutar pg_restore','Finalizar y comprobar'].map((title,index)=><div className="step" key={title}><span className={'mark '+(job?.state==='completed'||(job?.progress??0)>([12,25,40,100][index])?'done':(job?.progress??0)===[12,25,40,100][index]&&running?'running':'pending')}>{job?.state==='completed'?<CheckCircle2 size={15}/>:String(index+1).padStart(2,'0')}</span><div><strong>{title}</strong><span>{index===2?'--clean · --if-exists · --jobs 4':'Con los valores ingresados'}</span></div></div>)}
     </div>
-    <div className="progress"><div className="progress-title"><span>{job?.step||'Esperando un respaldo'}</span><strong>{job?.progress||0}%</strong></div><div className="track"><div style={{width:(job?.progress||0)+'%'}}/></div>
-     <AnimatePresence>{job?.state==='completed'&&<motion.div className="message success" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-6}} transition={{duration:.2}}>Restauración finalizada. Verificá los objetos en Supabase.</motion.div>}{job?.state==='failed'&&<motion.div className="message error" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-6}} transition={{duration:.2}}>{job.error}</motion.div>}</AnimatePresence>
+    <ProcessActivity job={job} title="Actividad de restauración"/><div className="progress"><div className="progress-title"><span>{job?.step||'Esperando una restauración'}</span><strong>{running?'En curso':job?.state==='completed'?'Completado':job?.state==='failed'?'Con errores':'Pendiente'}</strong></div><div className={'track '+(running?'track-working':'')}><div style={{width:running?'100%':job?.state==='completed'?'100%':(job?.progress||0)+'%'}}/></div>
+     <AnimatePresence>{job?.state==='completed'&&<motion.div className="message success" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-6}} transition={{duration:.2}}>El comando terminó correctamente. Verificá datos y permisos en Supabase.</motion.div>}{job?.state==='failed'&&<motion.div className="message error" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-6}} transition={{duration:.2}}>{job.error}</motion.div>}</AnimatePresence>
     </div>
-    <div className="logbox"><h3>ACTIVIDAD</h3><pre>{job?.logs.join('\n')||'Aún no hay actividad registrada.'}</pre></div>
+    <div className="logbox"><h3>REGISTRO EN VIVO</h3><pre>{job?.logs.join('\n')||'Aún no hay actividad registrada.'}</pre></div>
    </aside>
   </div>
   <AnimatePresence>{confirmOpen&&<motion.div className="restore-overlay" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:.2}}><motion.div role="dialog" aria-modal="true" aria-labelledby="restore-confirm-title" className="restore-dialog" initial={{opacity:0,y:10,scale:.985}} animate={{opacity:1,y:0,scale:1}} exit={{opacity:0,y:10,scale:.985}} transition={{duration:.2}}>

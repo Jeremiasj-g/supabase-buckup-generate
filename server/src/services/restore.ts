@@ -12,6 +12,8 @@ export type RestoreJob = {
   logs: string[];
   error?: string;
   createdAt: string;
+  activityCount: number;
+  currentOperation?: string;
 };
 
 const jobs = new Map<string, RestoreJob>();
@@ -27,7 +29,7 @@ function update(job: RestoreJob, message: string, progress: number) {
   job.step = message;
   job.progress = progress;
   job.logs.push(message);
-  if (job.logs.length > 50) job.logs.shift();
+  if (job.logs.length > 35) job.logs.shift();
 }
 
 export function restoreBackup(input: Connection, archivePath: string) {
@@ -35,7 +37,7 @@ export function restoreBackup(input: Connection, archivePath: string) {
   running = true;
   const job: RestoreJob = {
     id: randomUUID(), state: 'queued', step: 'Preparando restauración',
-    progress: 0, logs: [], createdAt: new Date().toISOString(),
+    progress: 0, logs: [], createdAt: new Date().toISOString(), activityCount: 0,
   };
   jobs.set(job.id, job);
   void perform(job, input, archivePath).finally(() => { running = false; });
@@ -55,6 +57,7 @@ async function perform(job: RestoreJob, connection: Connection, archivePath: str
     // SSL se exige mediante PGSSLMODE=require y la contraseña mediante PGPASSWORD.
     update(job, 'Restaurando objetos de PostgreSQL (el proceso puede tardar)', 40);
     await run('pg_restore', [
+      '--verbose',
       '-h', connection.host,
       '-p', String(connection.port),
       '-U', connection.user,
@@ -66,6 +69,15 @@ async function perform(job: RestoreJob, connection: Connection, archivePath: str
     ], {
       env: { PGPASSWORD: connection.password, PGSSLMODE: 'require', PGCONNECT_TIMEOUT: '15' },
       timeout: 60 * 60 * 1000,
+      onLine: line => {
+        // Solo transmitir estados de pg_restore, nunca contraseñas ni conexiones.
+        job.activityCount++;
+        const clean=line.replace(/^pg_restore:\s*(?:procesando|processing)?\s*/i,'').slice(0,300);
+        if(!clean)return;
+        job.currentOperation=clean;
+        job.logs.push(clean);
+        if(job.logs.length>35)job.logs.shift();
+      },
     });
     job.state = 'completed';
     update(job, 'Restauración finalizada. Revisá tablas, datos y funciones en Supabase.', 100);

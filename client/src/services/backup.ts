@@ -2,7 +2,7 @@ export type Payload = {
  projectRef:string;host:string;port:number;user:string;password:string;accessToken:string;database:boolean;functions:boolean
 };
 export type Job = {
- id:string;state:'queued'|'running'|'completed'|'failed';step:string;progress:number;logs:string[];error?:string;filename?:string
+ id:string;state:'queued'|'running'|'completed'|'failed';step:string;progress:number;logs:string[];error?:string;filename?:string;activityCount?:number;currentOperation?:string;createdAt?:string
 };
 
 // Vite puede responder 500 sin JSON cuando el backend no está levantado.

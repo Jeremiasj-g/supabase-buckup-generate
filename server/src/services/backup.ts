@@ -27,6 +27,8 @@ export type Job = {
   sqlPath?: string;
   sqlFilename?: string;
   formatting?: boolean;
+  activityCount: number;
+  currentOperation?: string;
 };
 
 const jobs = new Map<string, Job>();
@@ -59,6 +61,7 @@ export function start(input: Input) {
     step: 'Preparando respaldo',
     progress: 0,
     logs: [],
+    activityCount: 0,
   };
   jobs.set(job.id, job);
   void perform(job, input).finally(() => { running = false; });
@@ -109,7 +112,14 @@ async function perform(job: Job, input: Input) {
     const dumpName = 'supabase_backup_' + timestamp() + '.dump';
     if (input.database) {
       advance(job, 'Ejecutando pg_dump con la configuración original', 30);
-      await dump(input, join(workFolder, dumpName));
+      await dump(input, join(workFolder, dumpName), line => {
+        job.activityCount++;
+        const clean=line.replace(/^pg_dump:\s*/i,'').slice(0,300);
+        if(!clean)return;
+        job.currentOperation=clean;
+        job.logs.push(clean);
+        if(job.logs.length>35)job.logs.shift();
+      });
       advance(job, 'Archivo PostgreSQL generado', 60);
     } else {
       advance(job, 'PostgreSQL no seleccionado', 60);

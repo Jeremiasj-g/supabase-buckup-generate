@@ -98,3 +98,9 @@ La ejecución está limitada a `127.0.0.1`. Se recomienda restaurar solamente en
 ## Estética
 
 La interfaz usa pesos tipográficos de **400 a 600**, tema claro/oscuro y transiciones de 200 ms.
+
+## Indicadores de progreso en vivo
+
+Durante `pg_dump --verbose` y `pg_restore --verbose`, el backend lee las líneas de salida de PostgreSQL mientras el proceso sigue ejecutándose y las expone en el estado de cada tarea. La UI consulta periódicamente el estado, muestra actividad reciente, cantidad de mensajes y tiempo transcurrido. **El avance durante operaciones de PostgreSQL es indeterminado**: no se muestra un porcentaje ficticio de tablas restauradas. En restauración se agrega `--verbose` solo para informar los objetos que se procesan; se mantienen `--clean --if-exists --no-owner --no-privileges --jobs 4`.
+
+Si `pg_restore` retorna código 1, la tarea se marca con errores aunque algunas tablas hayan sido creadas. La restauración de objetos gestionados por Supabase, especialmente extensiones y event triggers que requieren superusuario, puede fallar; no debe considerarse restauración verificada. Compará esquemas, registros y autenticación antes de usar la base destino.
