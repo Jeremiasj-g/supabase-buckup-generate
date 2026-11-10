@@ -1,6 +1,6 @@
 # Supabase Backup Manager
 
-Aplicación **local** para generar ZIP con PostgreSQL y Edge Functions de Supabase. Frontend Vite + React 19 + Tailwind CSS 4; backend Node.js + Express + TypeScript.
+Aplicación **local** para generar archivos **.dump** de PostgreSQL (por defecto) y opcionalmente un ZIP con Edge Functions de Supabase. Frontend Vite + React 19 + Tailwind CSS 4; backend Node.js + Express + TypeScript.
 
 ## Primer uso
 
@@ -18,12 +18,12 @@ Abrí **http://127.0.0.1:5173**. La API solo escucha en `127.0.0.1:4174`.
 ## Formulario
 
 - **Project Ref:** identificador de 20 letras de tu proyecto.
-- **Host y puerto:** copiá de Supabase → Connect. Para backups se recomienda Direct o **Session Pooler (5432)**; Transaction Pooler utiliza 6543 pero puede presentar limitaciones.
+- **Host y puerto:** copiá de Supabase → Connect. La pantalla utiliza **Transaction Pooler (6543)** de forma predeterminada, como en el comando PowerShell original. También podés configurar Direct/Session Pooler (5432).
 - **Usuario:** para Session Pooler usualmente `postgres.PROJECT_REF`.
 - **Contraseña:** contraseña de PostgreSQL del proyecto.
 - **Supabase Access Token:** token personal de Dashboard → Account → Access Tokens, solo necesario para descargar funciones. **No uses la anon key ni la service_role key.**
 
-Podés probar la conexión, seleccionar PostgreSQL y/o Edge Functions y generar un ZIP. Incluye `database.dump`, `supabase/functions/` (según selección) y `manifest.json`.
+**Por defecto solo PostgreSQL está seleccionado**, Edge Functions y el Access Token son opcionales. Con solo PostgreSQL se descarga directamente un `supabase_backup_YYYYMMDD_HHmm.dump` creado con `pg_dump -h ... -p 6543 -U ... -d postgres -Fc --no-owner --file ... --verbose` y `PGSSLMODE=require`. Si activás funciones, se genera un ZIP.
 
 ## Alcance y límites
 
@@ -58,3 +58,7 @@ package.json
 [CLI para migrar Edge Functions](https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore) · [Conexiones PostgreSQL](https://supabase.com/docs/guides/database/connecting-to-postgres)
 
 **Importante:** Para instalar las dependencias del workspace en tu equipo, ejecutá `npm install`. El código está preparado para esa instalación; todavía debe validarse en un entorno local con PostgreSQL y CLI configuradas.
+
+## Primera etapa: mismo respaldo que PowerShell
+
+El modo predeterminado no ejecuta Supabase CLI ni solicita un Access Token. Requiere únicamente `pg_dump` en el PATH. `psql` sirve para el botón de prueba y `pg_restore` para la verificación adicional, si están disponibles. La URI `--dbname` redundante se sustituyó por `-d postgres` + `PGSSLMODE=require` para evitar pasar dos veces el nombre de base. El archivo generado se descarga como `.dump` sin comprimirlo en ZIP. Si `pg_dump` funciona, el respaldo no depende de las Edge Functions.
