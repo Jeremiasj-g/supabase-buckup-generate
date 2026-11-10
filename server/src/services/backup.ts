@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import archiver from 'archiver';
-import { dump, type Connection } from './database.js';
+import { dump, run, type Connection } from './database.js';
 import { downloadFunctions } from './edge-functions.js';
 
 export type Input = Connection & {
@@ -24,6 +24,9 @@ export type Job = {
   filename?: string;
   path?: string;
   fileSize?: number;
+  sqlPath?: string;
+  sqlFilename?: string;
+  formatting?: boolean;
 };
 
 const jobs = new Map<string, Job>();
@@ -36,7 +39,7 @@ const backupRoot = join(tmpdir(), 'supabase-backup-manager');
 export const findJob = (id: string) => jobs.get(id);
 
 export function publicJob(job: Job) {
-  const { path, ...safe } = job;
+  const { path, sqlPath, ...safe } = job;
   return safe;
 }
 
@@ -154,10 +157,65 @@ async function perform(job: Job, input: Input) {
   }
 }
 
+// Convierte bajo demanda el .dump ya generado, sin conectarse otra vez a Supabase.
+// Solo se admite para backups PostgreSQL individuales (no ZIP).
+const formatTasks = new Map<string, Promise<{ filename: string; size: number }>>();
+export async function prepareSql(job: Job): Promise<{ filename: string; size: number }> {
+  if (job.state !== 'completed' || !job.path || !job.filename?.endsWith('.dump')) {
+    throw new Error('La conversión SQL solo está disponible para respaldos .dump completados.');
+  }
+  const existingTask = formatTasks.get(job.id);
+  if (existingTask) return existingTask;
+
+  const task = (async () => {
+    const original = job.path!;
+    const originalName = job.filename!;
+    const sqlPath = join(backupRoot, job.id + '.sql');
+    const sqlFilename = originalName.replace(/\.dump$/, '.sql');
+
+    try {
+      await verifyFile(original);
+      if (job.sqlPath) {
+        try {
+          const size = await verifyFile(job.sqlPath);
+          return { filename: sqlFilename, size };
+        } catch {
+          job.sqlPath = undefined;
+        }
+      }
+
+      job.formatting = true;
+      await rm(sqlPath, { force: true }).catch(() => {});
+      // Equivale al comando: pg_restore -f backup.sql -F c archivo.dump
+      // --no-owner evita instrucciones de propietario poco útiles en el SQL de lectura.
+      await run('pg_restore', [
+        '-f', sqlPath, '-F', 'c', '--no-owner', original,
+      ], { timeout: 30 * 60 * 1000 });
+      const size = await verifyFile(sqlPath);
+      job.sqlPath = sqlPath;
+      job.sqlFilename = sqlFilename;
+      return { filename: sqlFilename, size };
+    } catch (error) {
+      await rm(sqlPath, { force: true }).catch(() => {});
+      throw new Error('No se pudo generar el SQL. Comprobá que pg_restore esté instalado: '
+        + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      job.formatting = false;
+    }
+  })();
+
+  formatTasks.set(job.id, task);
+  try {
+    return await task;
+  } finally {
+    formatTasks.delete(job.id);
+  }
+}
+
 export async function cleanup() {
   await mkdir(backupRoot, { recursive: true });
   for (const file of await readdir(backupRoot)) {
-    if (!file.endsWith('.zip') && !file.endsWith('.dump')) continue;
+    if (!file.endsWith('.zip') && !file.endsWith('.dump') && !file.endsWith('.sql')) continue;
     const path = join(backupRoot, file);
     try {
       if (Date.now() - (await stat(path)).mtimeMs > 24 * 60 * 60 * 1000) {

@@ -40,3 +40,37 @@ html,body,.layout{background:var(--sb-bg);color:var(--sb-text);transition:backgr
 @keyframes status-appear{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
 @keyframes ui-fade-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.mark,.mark-content,.step,.choice,.summary-item,.btn,.nav,.field,.input-wrap,.panel,.message,.download,.theme-switch,.progress .track div{animation:none!important;transition:none!important;transform:none!important}}
+
+/* Animación uniforme a nivel de página: 200ms, entrada y salida de componentes */
+.app-enter .sidebar,.app-enter .topbar,.app-enter .hero,.app-enter .summary,.app-enter .workspace,
+.app-enter .grid,.app-enter .footnote{animation:page-appear .2s ease-out both}
+.app-enter .summary{animation-delay:25ms}
+.app-enter .grid{animation-delay:50ms}
+.app-enter .footnote{animation-delay:70ms}
+.app-enter .summary-item,.app-enter .panel,.app-enter .panel-head,.app-enter .field,
+.app-enter .choice,.app-enter .step{animation:component-appear .2s ease-out both}
+.app-enter .summary-item:nth-child(2){animation-delay:30ms}
+.app-enter .summary-item:nth-child(3){animation-delay:60ms}
+.app-enter .fields .field:nth-child(2){animation-delay:20ms}
+.app-enter .fields .field:nth-child(3){animation-delay:40ms}
+.app-enter .fields .field:nth-child(4){animation-delay:60ms}
+.app-enter .steps .step:nth-child(2){animation-delay:25ms}
+.app-enter .steps .step:nth-child(3){animation-delay:50ms}
+.app-enter .steps .step:nth-child(4){animation-delay:75ms}
+@keyframes page-appear{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+@keyframes component-appear{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.export-area{margin-top:14px}
+.export-heading{color:var(--sb-text);font-size:11px;font-weight:650;margin:0 0 10px}
+.export-chooser{border-top:1px solid var(--sb-border);padding-top:16px}
+.export-option{display:flex;align-items:flex-start;gap:11px;cursor:pointer;padding:13px;border:1px solid var(--sb-border);border-radius:10px;background:var(--sb-subtle);transition:background .2s,border-color .2s}
+.export-option:hover{border-color:var(--sb-green)}
+.export-option input{accent-color:var(--sb-green);margin-top:3px;cursor:pointer}
+.export-option strong{font-size:11px;display:block;color:var(--sb-text);font-weight:600}
+.export-option small{font-size:10px;display:block;color:var(--sb-muted);line-height:1.6;margin-top:5px}
+.export-area .download{margin-top:12px}
+@media(prefers-reduced-motion:reduce){
+.app-enter .sidebar,.app-enter .topbar,.app-enter .hero,.app-enter .summary,
+.app-enter .grid,.app-enter .footnote,.app-enter .summary-item,.app-enter .panel,
+.app-enter .panel-head,.app-enter .field,.app-enter .choice,.app-enter .step{animation:none!important}
+.export-option{transition:none}
+}

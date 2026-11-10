@@ -70,3 +70,13 @@ Para evitar errores al descargar desde carpetas sincronizadas, los respaldos se 
 **Después de actualizar, reiniciá el servidor y generá un respaldo nuevo.** Los trabajos anteriores vivían en memoria y sus archivos pudieron haber desaparecido; no se recuperan automáticamente.
 
 Las animaciones de interfaz y checks duran 200 ms y respetan la preferencia de movimiento reducido del sistema.
+
+## Exportación en formato SQL legible
+
+Tras terminar un respaldo PostgreSQL individual, en **Formato de exportación** podés dejar el archivo `.dump` original o activar **Exportar como SQL legible** y descargar un `.sql`.
+La conversión se hace **sobre el respaldo existente**, sin repetir `pg_dump` ni reconectarse a Supabase, usando `pg_restore -f ARCHIVO.sql -F c --no-owner ARCHIVO.dump`. El archivo original se conserva y sigue disponible. Se necesita `pg_restore` en el PATH para convertir. El SQL es útil para inspeccionar definiciones, tablas e inserciones; para restaurar una base completa se recomienda el formato custom original.
+El SQL solo se ofrece para backups `.dump` individuales; no para ZIP con Edge Functions.
+
+## Animaciones globales
+
+Las apariciones de página, secciones, formularios, campos condicionales, errores y opciones de descarga tienen transiciones de **200 ms**. Las salidas de componentes dinámicos usan AnimatePresence; con la preferencia de movimiento reducido se evita el movimiento no esencial.
