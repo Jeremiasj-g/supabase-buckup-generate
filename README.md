@@ -80,3 +80,21 @@ El SQL solo se ofrece para backups `.dump` individuales; no para ZIP con Edge Fu
 ## Animaciones globales
 
 Las apariciones de página, secciones, formularios, campos condicionales, errores y opciones de descarga tienen transiciones de **200 ms**. Las salidas de componentes dinámicos usan AnimatePresence; con la preferencia de movimiento reducido se evita el movimiento no esencial.
+
+## Restaurar respaldo (nuevo)
+
+La opción **Restaurar respaldo** del sidebar permite subir un archivo `.dump` (formato custom, hasta 2 GB) y enviarlo a un proyecto Supabase de destino. El formulario solicita Project Ref, host, puerto, usuario y contraseña de la base **de destino**. No almacena la contraseña en GitHub, archivos ni registros.
+
+Se conserva el comando original:
+
+```powershell
+pg_restore -h HOST -p 6543 -U postgres.PROJECT_REF -d postgres --clean --if-exists --no-owner --no-privileges --jobs 4 "ARCHIVO.dump"
+```
+
+La contraseña pasa exclusivamente mediante `PGPASSWORD` y SSL mediante `PGSSLMODE=require`. El servidor verifica primero que el archivo sea un archivo custom legible con `pg_restore --list`. Luego ejecuta el comando. Esta operación **puede eliminar y reemplazar objetos existentes**, por eso exige confirmación del Project Ref antes de comenzar. Los errores de `pg_restore` se presentan y no se informa éxito si devuelve un código distinto de cero. El archivo temporal subido se elimina al terminar.
+
+La ejecución está limitada a `127.0.0.1`. Se recomienda restaurar solamente en un **proyecto nuevo de pruebas**, ya que los esquemas administrados por Supabase pueden presentar diferencias y permisos restrictivos. Un error puede dejar una restauración parcial. No es una operación transaccional reversible.
+
+## Estética
+
+La interfaz usa pesos tipográficos de **400 a 600**, tema claro/oscuro y transiciones de 200 ms.
