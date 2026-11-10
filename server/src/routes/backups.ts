@@ -1,0 +1,14 @@
+import {Router} from 'express';
+import {z} from 'zod';
+import {available,testDb} from '../services/database.js';
+import {start,findJob,publicJob} from '../services/backup.js';
+const router=Router();
+const schema=z.object({projectRef:z.string().regex(/^[a-z]{20}$/),host:z.string().max(250),port:z.number().int().min(1).max(65535),user:z.string().max(150),password:z.string().max(500),accessToken:z.string().max(1000),database:z.boolean(),functions:z.boolean()}).refine(v=>v.database||v.functions,'Elegí algún componente').refine(v=>!v.database||!!(v.host&&v.user&&v.password),'Faltan credenciales PostgreSQL').refine(v=>!v.functions||!!v.accessToken,'Falta el token Supabase');
+const parse=(x:unknown)=>{const p=schema.safeParse(x);if(!p.success)throw new Error(p.error.issues.map(i=>i.message).join('; '));return p.data};
+const fail=(res:any,e:unknown)=>res.status(400).json({error:e instanceof Error?e.message:'Error inesperado'});
+router.get('/health',async(_req,res)=>{const [pgDump,pgRestore,psql,supabase]=await Promise.all(['pg_dump','pg_restore','psql','supabase'].map(available));res.json({ok:pgDump&&pgRestore,pgDump,pgRestore,psql,supabase})});
+router.post('/preflight',async(req,res)=>{try{const v=parse(req.body);if(v.database)await testDb(v);if(v.functions&&!(await available('supabase')))throw new Error('Supabase CLI no está instalada');res.json({ok:true,message:'Conexión verificada'+(v.functions?'; CLI detectada (token pendiente de verificar).':'')})}catch(e){fail(res,e)}});
+router.post('/backups',(req,res)=>{try{res.status(202).json(publicJob(start(parse(req.body))))}catch(e){fail(res,e)}});
+router.get('/backups/:id',(req,res)=>{const j=findJob(String(req.params.id));if(!j){res.status(404).json({error:'No encontrado'});return}res.json(publicJob(j))});
+router.get('/backups/:id/download',(req,res)=>{const j=findJob(String(req.params.id));if(!j||j.state!=='completed'||!j.path){res.status(404).json({error:'Archivo no disponible'});return}res.download(j.path,j.filename)});
+export default router;

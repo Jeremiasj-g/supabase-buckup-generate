@@ -1,78 +1,60 @@
-# React + TypeScript + Vite
+# Supabase Backup Manager
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicación **local** para generar ZIP con PostgreSQL y Edge Functions de Supabase. Frontend Vite + React 19 + Tailwind CSS 4; backend Node.js + Express + TypeScript.
 
-Currently, two official plugins are available:
+## Primer uso
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Instalá Node.js 22+ y herramientas de PostgreSQL (`pg_dump`, `pg_restore`, `psql`) con la versión igual o superior a la del servidor. Si querés Edge Functions, instalá **Supabase CLI v3** (verificá `supabase --version`). Luego:
 
-## React Compiler
-
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
-
-Note: This will impact Vite dev & build performances.
-You can also try [the experimental native React Compiler support in plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md#rust-react-compiler) by using `compiler: true` in the plugin options instead of using the Babel plugin.
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+git clone https://github.com/Jeremiasj-g/supabase-buckup-generate.git
+cd supabase-buckup-generate
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+Abrí **http://127.0.0.1:5173**. La API solo escucha en `127.0.0.1:4174`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Formulario
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- **Project Ref:** identificador de 20 letras de tu proyecto.
+- **Host y puerto:** copiá de Supabase → Connect. Para backups se recomienda Direct o **Session Pooler (5432)**; Transaction Pooler utiliza 6543 pero puede presentar limitaciones.
+- **Usuario:** para Session Pooler usualmente `postgres.PROJECT_REF`.
+- **Contraseña:** contraseña de PostgreSQL del proyecto.
+- **Supabase Access Token:** token personal de Dashboard → Account → Access Tokens, solo necesario para descargar funciones. **No uses la anon key ni la service_role key.**
+
+Podés probar la conexión, seleccionar PostgreSQL y/o Edge Functions y generar un ZIP. Incluye `database.dump`, `supabase/functions/` (según selección) y `manifest.json`.
+
+## Alcance y límites
+
+- El dump es **lógico**, no una clonación exacta de todos los servicios administrados de Supabase. Probá una restauración en un proyecto de prueba.
+- **No incluye** objetos físicos de Storage, secrets, configuraciones externas de Auth/SMTP ni historial de despliegues.
+- Edge Functions pueden requerir archivos auxiliares como `deno.json` e import maps que la CLI no recupera.
+- Los archivos ZIP permanecen temporalmente en `server/.backups` (o `.backups` del directorio de arranque); se purgan al arrancar si superan 24 horas.
+- La herramienta funciona **solo localmente**. Nunca expongas esta API a internet ni subas backups, tokens o contraseñas a GitHub.
+
+## Árbol principal
 
 ```
+client/
+  src/
+    components/
+    hooks/
+    services/
+    App.tsx
+server/
+  src/
+    routes/
+    services/
+      database.ts
+      edge-functions.ts
+      backup.ts
+    index.ts
+package.json
+```
+
+## Referencias
+
+[CLI para migrar Edge Functions](https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore) · [Conexiones PostgreSQL](https://supabase.com/docs/guides/database/connecting-to-postgres)
+
+**Importante:** Para instalar las dependencias del workspace en tu equipo, ejecutá `npm install`. El código está preparado para esa instalación; todavía debe validarse en un entorno local con PostgreSQL y CLI configuradas.

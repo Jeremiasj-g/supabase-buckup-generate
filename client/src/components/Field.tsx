@@ -1,0 +1,1 @@
+import type{InputHTMLAttributes,ReactNode}from'react';export function Field({label,icon,hint,...props}:InputHTMLAttributes<HTMLInputElement>&{label:string;icon?:ReactNode;hint?:string}){return <label className="field"><span className="field-label">{label}</span><span className="input-wrap">{icon}<input {...props}/></span>{hint&&<small>{hint}</small>}</label>}
