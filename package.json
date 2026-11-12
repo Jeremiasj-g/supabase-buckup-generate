@@ -1,1 +1,18 @@
-{"name":"supabase-backup-manager","private":true,"type":"module","workspaces":["client","server"],"scripts":{"dev":"concurrently -k \"npm run dev -w server\" \"npm run dev -w client\"","build":"npm run build -w client && npm run build -w server"},"devDependencies":{"concurrently":"^9.2.1","typescript":"~5.9.3"}}
+{
+  "name": "supabase-backup-manager",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently -k \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w client && npm run build -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "typescript": "~5.9.3",
+    "supabase": "3.1.0"
+  }
+}

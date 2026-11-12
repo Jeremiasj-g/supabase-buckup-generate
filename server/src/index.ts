@@ -38,6 +38,19 @@ app.use('/api', (req, res, next) => {
  restoreRouter(req, res, next);
 });
 
+// Carga aislada para no afectar los backups PostgreSQL si falla esta funcionalidad.
+let functionsRouter: express.Router | null = null;
+void import('./routes/functions-deploy.js')
+ .then(({default:router}) => {
+  functionsRouter=router;
+  console.log('Módulo Edge Functions disponible.');
+ })
+ .catch(error=>console.error('No se pudo cargar módulo Edge Functions:',error));
+app.use('/api', (req,res,next)=>{
+ if(!req.path.startsWith('/functions/'))return next();
+ if(!functionsRouter){res.status(503).json({error:'Módulo Edge Functions no disponible. Ejecutá npm install y reiniciá npm run dev.'});return;}
+ functionsRouter(req,res,next);
+});
 app.use('/api', (req, res) => {
  res.status(404).json({ error: 'Ruta de API no encontrada: ' + req.path });
 });

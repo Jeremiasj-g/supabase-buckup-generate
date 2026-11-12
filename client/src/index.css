@@ -128,3 +128,9 @@ strong,b,h1,h2,h3,h4,h5,h6{font-weight:600}
 @keyframes process-scan{0%{left:-37%}50%{left:50%}100%{left:100%}}
 .logbox pre{max-height:235px;overflow:auto;overflow-wrap:anywhere}
 @media(prefers-reduced-motion:reduce){.process-indeterminate>div,.track-working>div{animation:none!important;left:0!important}}
+
+.function-upload{position:relative;cursor:pointer}
+.function-upload input.visually-hidden{pointer-events:none}
+.function-results{border-top:1px solid var(--sb-border);margin-top:16px;padding-top:12px;font-size:11px}
+.function-results strong{font-weight:600}
+.function-results p{color:var(--sb-muted);line-height:1.7;overflow-wrap:anywhere}
