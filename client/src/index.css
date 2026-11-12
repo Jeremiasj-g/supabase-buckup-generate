@@ -134,3 +134,12 @@ strong,b,h1,h2,h3,h4,h5,h6{font-weight:600}
 .function-results{border-top:1px solid var(--sb-border);margin-top:16px;padding-top:12px;font-size:11px}
 .function-results strong{font-weight:600}
 .function-results p{color:var(--sb-muted);line-height:1.7;overflow-wrap:anywhere}
+
+/* Restauración integrada dentro de la misma sección, sin nuevo sidebar */
+.restore-switch-wrap{max-width:1250px;margin:0 auto;padding:24px 48px 0}
+.restore-switch{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--sb-border);background:var(--sb-surface);border-radius:11px}
+.restore-switch button{display:flex;align-items:center;gap:8px;border:0;border-radius:8px;padding:10px 16px;background:transparent;color:var(--sb-muted);font-size:12px;font-weight:500;transition:background .2s,color .2s}
+.restore-switch button.selected{background:var(--sb-active);color:var(--sb-green-hover);font-weight:600}
+.restore-switch button:not(.selected):hover{background:var(--sb-subtle);color:var(--sb-text)}
+@media(max-width:760px){.restore-switch-wrap{padding:20px 19px 0}.restore-switch{display:flex;width:100%}.restore-switch button{flex:1;justify-content:center;padding:10px 8px;font-size:11px}}
+@media(prefers-reduced-motion:reduce){.restore-switch button{transition:none}}

@@ -110,3 +110,9 @@ Si `pg_restore` retorna código 1, la tarea se marca con errores aunque algunas 
 En **Nuevo respaldo** desactivá PostgreSQL y activá Edge Functions. Ingresá el Project Ref del origen y un token personal con permiso de lectura; el resultado será un ZIP con `supabase/functions/`. Para **restaurar** funciones, entrá en **Restaurar funciones**, elegí ese ZIP, ingresá el Project Ref del destino y un token con permiso de despliegue y confirmá el proyecto. Se ejecuta `supabase functions deploy --remote=DESTINO --use-api --yes`, sin `--prune`: no se eliminan funciones que ya existan en destino, pero las que tengan igual nombre pueden reemplazarse. El código no se despliega hasta la confirmación explícita del usuario.
 
 Supabase CLI 3.1.0 se declara como dependencia de desarrollo del workspace: corré `npm install` y reiniciá `npm run dev` para que esté disponible en el PATH del script npm. Solo se ejecuta localmente. No se incluyen secrets, configuraciones externas, import maps ni `deno.json` que la CLI no pueda recuperar. Después de desplegar, configurá manualmente los secretos y verificá las rutas y JWT de las funciones. **No se garantiza un clon 1:1.**
+
+## Navegación simplificada
+
+El sidebar mantiene **Nuevo respaldo** y **Restaurar respaldo**, sin sección independiente de funciones. En **Nuevo respaldo**, los checks PostgreSQL y Edge Functions deciden qué incluir (solo PostgreSQL produce `.dump`; Edge Functions solas o combinadas producen `.zip`). El token es obligatorio únicamente cuando se incluyen funciones.
+
+En **Restaurar respaldo**, el selector **Base de datos (.dump) / Edge Functions (.zip)** permite elegir el tipo de archivo y los datos de destino adecuados. La restauración PostgreSQL y el despliegue de funciones siguen siendo operaciones separadas con confirmación explícita, pero comparten una sola sección del sidebar.
