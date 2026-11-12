@@ -13,7 +13,13 @@ const upload=multer({
   filename:(_req,_file,cb)=>cb(null,randomUUID()+'.zip'),
  }),
  limits:{fileSize:120*1024*1024,files:1,fields:3},
- fileFilter:(_req,file,cb)=>cb(file.originalname.toLowerCase().endsWith('.zip')?null:new Error('Seleccioná un archivo ZIP de Edge Functions.'),file.originalname.toLowerCase().endsWith('.zip')),
+ fileFilter:(_req,file,cb)=>{
+  if(!file.originalname.toLowerCase().endsWith('.zip')){
+   cb(new Error('Seleccioná un archivo ZIP de Edge Functions.'));
+   return;
+  }
+  cb(null,true);
+ },
 });
 const schema=z.object({
  projectRef:z.string().regex(/^[a-z]{20}$/,'Project Ref inválido'),
