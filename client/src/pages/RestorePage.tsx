@@ -70,9 +70,6 @@ export function RestorePage() {
     </form>
    </section>
    <aside className="panel" id="restore-status"><div className="status-head"><h2>Estado de restauración</h2><p>Seguimiento del proceso en PostgreSQL</p></div>
-    <div className="steps">
-     {['Validar archivo .dump','Conectar al destino','Ejecutar pg_restore','Finalizar y comprobar'].map((title,index)=><div className="step" key={title}><span className={'mark '+(job?.state==='completed'||(job?.progress??0)>([12,25,40,100][index])?'done':(job?.progress??0)===[12,25,40,100][index]&&running?'running':'pending')}>{job?.state==='completed'?<CheckCircle2 size={15}/>:String(index+1).padStart(2,'0')}</span><div><strong>{title}</strong><span>{index===2?'--clean · --if-exists · --jobs 4':'Con los valores ingresados'}</span></div></div>)}
-    </div>
     <ProcessActivity job={job} title="Actividad de restauración"/><div className="progress"><div className="progress-title"><span>{job?.step||'Esperando una restauración'}</span><strong>{running?'En curso':job?.state==='completed'?'Completado':job?.state==='failed'?'Con errores':'Pendiente'}</strong></div><div className={'track '+(running?'track-working':'')}><div style={{width:running?'100%':job?.state==='completed'?'100%':(job?.progress||0)+'%'}}/></div>
      <AnimatePresence>{job?.state==='completed'&&<motion.div className="message success" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-6}} transition={{duration:.2}}>El comando terminó correctamente. Verificá datos y permisos en Supabase.</motion.div>}{job?.state==='failed'&&<motion.div className="message error" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-6}} transition={{duration:.2}}>{job.error}</motion.div>}</AnimatePresence>
     </div>
