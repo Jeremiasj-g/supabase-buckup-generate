@@ -143,3 +143,6 @@ strong,b,h1,h2,h3,h4,h5,h6{font-weight:600}
 .restore-switch button:not(.selected):hover{background:var(--sb-subtle);color:var(--sb-text)}
 @media(max-width:760px){.restore-switch-wrap{padding:20px 19px 0}.restore-switch{display:flex;width:100%}.restore-switch button{flex:1;justify-content:center;padding:10px 8px;font-size:11px}}
 @media(prefers-reduced-motion:reduce){.restore-switch button{transition:none}}
+
+/* Header visible al desplazarse, sin superponer el sidebar ni los diálogos. */
+.topbar{position:sticky;top:0;z-index:25;background:var(--sb-surface);border-bottom:1px solid var(--sb-border)}
