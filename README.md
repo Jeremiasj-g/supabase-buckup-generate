@@ -1,123 +1,268 @@
-# Supabase Backup Manager
+# ⚡ Supabase Backup Manager
 
-Aplicación **local** para generar archivos **.dump** de PostgreSQL (por defecto) y opcionalmente un ZIP con Edge Functions de Supabase. Frontend Vite + React 19 + Tailwind CSS 4; backend Node.js + Express + TypeScript.
+Herramienta **local** para generar, descargar y restaurar respaldos de proyectos Supabase. Permite trabajar con **PostgreSQL**, convertir archivos `.dump` a SQL legible y copiar **Edge Functions** entre proyectos mediante Supabase CLI.
 
-## Primer uso
+> **Estado del proyecto:** uso local. No está preparado para publicarse como aplicación administrativa en internet. No es una clonación completa de todos los servicios administrados de Supabase.
 
-Instalá Node.js 22+ y herramientas de PostgreSQL (`pg_dump`, `pg_restore`, `psql`) con la versión igual o superior a la del servidor. Si querés Edge Functions, instalá **Supabase CLI v3** (verificá `supabase --version`). Luego:
+## Funcionalidades
 
-```bash
+| Operación | Qué hace | Resultado |
+| --- | --- | --- |
+| Respaldar PostgreSQL | Exporta estructura y datos con `pg_dump` en formato custom | `.dump` |
+| Exportar SQL legible | Convierte un respaldo custom existente con `pg_restore`, sin repetir la descarga | `.sql` |
+| Respaldar Edge Functions | Descarga las funciones desplegadas mediante Supabase CLI | `.zip` |
+| Respaldo combinado | Incluye PostgreSQL y Edge Functions | `.zip` con `database.dump` y `supabase/functions/` |
+| Restaurar PostgreSQL | Ejecuta `pg_restore` contra la base de destino | Modifica la base seleccionada |
+| Restaurar Edge Functions | Despliega el código del ZIP en otro proyecto mediante Supabase CLI | Funciones desplegadas en destino |
+
+**Respaldo parcial:** si se marca PostgreSQL + Edge Functions y falla la descarga de funciones después de exportar PostgreSQL, la aplicación ofrece un ZIP **parcial**, con el dump, un manifiesto y una advertencia. No se presenta como respaldo completo.
+
+### Interfaz
+
+- Sidebar con **Nuevo respaldo**, **Restaurar respaldo** y enlace a **Documentación**.
+- En **Nuevo respaldo** se elige PostgreSQL, Edge Functions o ambos mediante checks.
+- En **Restaurar respaldo** se alterna entre **Base de datos (.dump)** y **Edge Functions (.zip)**, sin secciones adicionales en el sidebar.
+- Seguimiento en vivo de la salida de los procesos, tiempo transcurrido, mensajes recientes y estados finales; animación indeterminada cuando PostgreSQL no informa un porcentaje real.
+- Modo claro/oscuro con preferencia persistida, verde Supabase `#3ECF8E`, favicon de rayito SVG, header sticky, animaciones de 200 ms y pesos tipográficos de 400 a 600.
+
+## Tecnologías
+
+| Capa | Tecnologías |
+| --- | --- |
+| Frontend | Vite, React 19, TypeScript, Tailwind CSS 4, Motion, Lucide React |
+| Backend local | Node.js, Express 5, TypeScript, Zod |
+| Exportar/restaurar PostgreSQL | `pg_dump`, `pg_restore`, `psql` |
+| Edge Functions | Supabase CLI (dependencia npm del repositorio) |
+| Archivos | Archiver, Multer, Unzipper |
+
+El repositorio usa **npm workspaces** para `client/` y `server/`. No utiliza Next.js.
+
+## Requisitos
+
+1. **Node.js 22+** y npm.
+2. Herramientas cliente PostgreSQL instaladas y accesibles desde la terminal: `pg_dump`, `pg_restore` y `psql`. Usá una versión de PostgreSQL compatible con el servidor de Supabase; para exportar se recomienda una versión igual o más nueva que la del servidor.
+3. Acceso al proyecto Supabase correspondiente y su contraseña PostgreSQL para operaciones de base de datos.
+4. Un **Supabase Personal Access Token** con los permisos necesarios si vas a descargar o desplegar Edge Functions. No sirve una `anon key` ni una `service_role key` como sustituto del token de gestión.
+5. Conectividad con Supabase. En **Connect** podés obtener host, usuario y puerto de PostgreSQL.
+
+La **Supabase CLI está declarada como dependencia del repositorio**; se instala mediante `npm install` y el backend intenta resolver el ejecutable local. No necesitás instalarla globalmente si esa instalación funciona.
+
+## Instalación y ejecución local
+
+```powershell
 git clone https://github.com/Jeremiasj-g/supabase-buckup-generate.git
 cd supabase-buckup-generate
 npm install
 npm run dev
 ```
 
-Abrí **http://127.0.0.1:5173**. La API solo escucha en `127.0.0.1:4174`.
+Abrí **http://127.0.0.1:5173**.
 
-## Formulario
+| Servicio | Dirección |
+| --- | --- |
+| Interfaz Vite | `http://127.0.0.1:5173` |
+| API Express | `http://127.0.0.1:4174` |
 
-- **Project Ref:** identificador de 20 letras de tu proyecto.
-- **Host y puerto:** copiá de Supabase → Connect. La pantalla utiliza **Transaction Pooler (6543)** de forma predeterminada, como en el comando PowerShell original. También podés configurar Direct/Session Pooler (5432).
-- **Usuario:** para Session Pooler usualmente `postgres.PROJECT_REF`.
-- **Contraseña:** contraseña de PostgreSQL del proyecto.
-- **Supabase Access Token:** token personal de Dashboard → Account → Access Tokens, solo necesario para descargar funciones. **No uses la anon key ni la service_role key.**
+Ambos servidores escuchan solamente en `127.0.0.1`. Vite reenvía las solicitudes `/api` al backend de Express.
 
-**Por defecto solo PostgreSQL está seleccionado**, Edge Functions y el Access Token son opcionales. Con solo PostgreSQL se descarga directamente un `supabase_backup_YYYYMMDD_HHmm.dump` creado con `pg_dump -h ... -p 6543 -U ... -d postgres -Fc --no-owner --file ... --verbose` y `PGSSLMODE=require`. Si activás funciones, se genera un ZIP.
-
-## Alcance y límites
-
-- El dump es **lógico**, no una clonación exacta de todos los servicios administrados de Supabase. Probá una restauración en un proyecto de prueba.
-- **No incluye** objetos físicos de Storage, secrets, configuraciones externas de Auth/SMTP ni historial de despliegues.
-- Edge Functions pueden requerir archivos auxiliares como `deno.json` e import maps que la CLI no recupera.
-- Los archivos ZIP permanecen temporalmente en `server/.backups` (o `.backups` del directorio de arranque); se purgan al arrancar si superan 24 horas.
-- La herramienta funciona **solo localmente**. Nunca expongas esta API a internet ni subas backups, tokens o contraseñas a GitHub.
-
-## Árbol principal
-
-```
-client/
-  src/
-    components/
-    hooks/
-    services/
-    App.tsx
-server/
-  src/
-    routes/
-    services/
-      database.ts
-      edge-functions.ts
-      backup.ts
-    index.ts
-package.json
-```
-
-## Referencias
-
-[CLI para migrar Edge Functions](https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore) · [Conexiones PostgreSQL](https://supabase.com/docs/guides/database/connecting-to-postgres)
-
-**Importante:** Para instalar las dependencias del workspace en tu equipo, ejecutá `npm install`. El código está preparado para esa instalación; todavía debe validarse en un entorno local con PostgreSQL y CLI configuradas.
-
-## Primera etapa: mismo respaldo que PowerShell
-
-El modo predeterminado no ejecuta Supabase CLI ni solicita un Access Token. Requiere únicamente `pg_dump` en el PATH. `psql` sirve para el botón de prueba y `pg_restore` para la verificación adicional, si están disponibles. La URI `--dbname` redundante se sustituyó por `-d postgres` + `PGSSLMODE=require` para evitar pasar dos veces el nombre de base. El archivo generado se descarga como `.dump` sin comprimirlo en ZIP. Si `pg_dump` funciona, el respaldo no depende de las Edge Functions.
-
-## Descarga de archivos (corrección de noviembre de 2026)
-
-Para evitar errores al descargar desde carpetas sincronizadas, los respaldos se escriben ahora en la **carpeta temporal local del sistema operativo** (`os.tmpdir()/supabase-backup-manager`), fuera del workspace de OneDrive. El servidor valida la existencia y el tamaño del archivo antes de marcar el trabajo al 100% y antes de servir la descarga. El endpoint sirve el archivo mediante un stream HTTP con encabezados de descarga y devuelve un error JSON legible si desapareció.
-
-**Después de actualizar, reiniciá el servidor y generá un respaldo nuevo.** Los trabajos anteriores vivían en memoria y sus archivos pudieron haber desaparecido; no se recuperan automáticamente.
-
-Las animaciones de interfaz y checks duran 200 ms y respetan la preferencia de movimiento reducido del sistema.
-
-## Exportación en formato SQL legible
-
-Tras terminar un respaldo PostgreSQL individual, en **Formato de exportación** podés dejar el archivo `.dump` original o activar **Exportar como SQL legible** y descargar un `.sql`.
-La conversión se hace **sobre el respaldo existente**, sin repetir `pg_dump` ni reconectarse a Supabase, usando `pg_restore -f ARCHIVO.sql -F c --no-owner ARCHIVO.dump`. El archivo original se conserva y sigue disponible. Se necesita `pg_restore` en el PATH para convertir. El SQL es útil para inspeccionar definiciones, tablas e inserciones; para restaurar una base completa se recomienda el formato custom original.
-El SQL solo se ofrece para backups `.dump` individuales; no para ZIP con Edge Functions.
-
-## Animaciones globales
-
-Las apariciones de página, secciones, formularios, campos condicionales, errores y opciones de descarga tienen transiciones de **200 ms**. Las salidas de componentes dinámicos usan AnimatePresence; con la preferencia de movimiento reducido se evita el movimiento no esencial.
-
-## Restaurar respaldo (nuevo)
-
-La opción **Restaurar respaldo** del sidebar permite subir un archivo `.dump` (formato custom, hasta 2 GB) y enviarlo a un proyecto Supabase de destino. El formulario solicita Project Ref, host, puerto, usuario y contraseña de la base **de destino**. No almacena la contraseña en GitHub, archivos ni registros.
-
-Se conserva el comando original:
+Para comprobar el entorno:
 
 ```powershell
-pg_restore -h HOST -p 6543 -U postgres.PROJECT_REF -d postgres --clean --if-exists --no-owner --no-privileges --jobs 4 "ARCHIVO.dump"
+pg_dump --version
+pg_restore --version
+psql --version
+npx --no-install supabase --version
+Invoke-RestMethod http://127.0.0.1:4174/api/health
 ```
 
-La contraseña pasa exclusivamente mediante `PGPASSWORD` y SSL mediante `PGSSLMODE=require`. El servidor verifica primero que el archivo sea un archivo custom legible con `pg_restore --list`. Luego ejecuta el comando. Esta operación **puede eliminar y reemplazar objetos existentes**, por eso exige confirmación del Project Ref antes de comenzar. Los errores de `pg_restore` se presentan y no se informa éxito si devuelve un código distinto de cero. El archivo temporal subido se elimina al terminar.
+Si actualizás dependencias o cambian servicios del backend, detené la aplicación con `Ctrl + C`, ejecutá `npm install` si corresponde y volvé a iniciar `npm run dev`.
 
-La ejecución está limitada a `127.0.0.1`. Se recomienda restaurar solamente en un **proyecto nuevo de pruebas**, ya que los esquemas administrados por Supabase pueden presentar diferencias y permisos restrictivos. Un error puede dejar una restauración parcial. No es una operación transaccional reversible.
+## Guía: generar un respaldo
 
-## Estética
+Abrí **Nuevo respaldo** y completá los datos del **proyecto de origen**:
 
-La interfaz usa pesos tipográficos de **400 a 600**, tema claro/oscuro y transiciones de 200 ms.
+- **Project Ref:** identificador de 20 letras del proyecto.
+- **Host PostgreSQL:** copialo de **Supabase Dashboard → Connect**.
+- **Puerto:** por defecto `6543` (Transaction Pooler, como el comando original probado). También podés usar Direct Connection o Session Pooler con los valores reales que informe Supabase.
+- **Usuario PostgreSQL:** normalmente `postgres.PROJECT_REF` para los poolers.
+- **Contraseña PostgreSQL:** contraseña de la base del proyecto.
+- **Access Token:** aparece y es obligatorio **solo cuando está activado Edge Functions**.
 
-## Indicadores de progreso en vivo
+Marcá los componentes a incluir y seleccioná **Generar backup**. Los datos PostgreSQL solo se requieren cuando marcás PostgreSQL; un respaldo de solo funciones no necesita la contraseña de la base de datos.
 
-Durante `pg_dump --verbose` y `pg_restore --verbose`, el backend lee las líneas de salida de PostgreSQL mientras el proceso sigue ejecutándose y las expone en el estado de cada tarea. La UI consulta periódicamente el estado, muestra actividad reciente, cantidad de mensajes y tiempo transcurrido. **El avance durante operaciones de PostgreSQL es indeterminado**: no se muestra un porcentaje ficticio de tablas restauradas. En restauración se agrega `--verbose` solo para informar los objetos que se procesan; se mantienen `--clean --if-exists --no-owner --no-privileges --jobs 4`.
+### Respaldo PostgreSQL
 
-Si `pg_restore` retorna código 1, la tarea se marca con errores aunque algunas tablas hayan sido creadas. La restauración de objetos gestionados por Supabase, especialmente extensiones y event triggers que requieren superusuario, puede fallar; no debe considerarse restauración verificada. Compará esquemas, registros y autenticación antes de usar la base destino.
+La exportación usa los parámetros de la versión PowerShell que se venía utilizando:
 
-## Clonar Edge Functions entre proyectos
+```powershell
+$env:PGPASSWORD = 'CONTRASEÑA_DE_TU_BD'
+$env:PGSSLMODE = 'require'
 
-En **Nuevo respaldo** desactivá PostgreSQL y activá Edge Functions. Ingresá el Project Ref del origen y un token personal con permiso de lectura; el resultado será un ZIP con `supabase/functions/`. Para **restaurar** funciones, entrá en **Restaurar funciones**, elegí ese ZIP, ingresá el Project Ref del destino y un token con permiso de despliegue y confirmá el proyecto. Se ejecuta `supabase functions deploy --remote=DESTINO --use-api --yes`, sin `--prune`: no se eliminan funciones que ya existan en destino, pero las que tengan igual nombre pueden reemplazarse. El código no se despliega hasta la confirmación explícita del usuario.
+pg_dump `
+  -h HOST `
+  -p 6543 `
+  -U postgres.PROJECT_REF `
+  -d postgres `
+  -Fc --no-owner `
+  --file "supabase_backup_YYYYMMDD_HHmm.dump" `
+  --verbose
+```
 
-Supabase CLI 3.1.0 se declara como dependencia de desarrollo del workspace: corré `npm install` y reiniciá `npm run dev` para que esté disponible en el PATH del script npm. Solo se ejecuta localmente. No se incluyen secrets, configuraciones externas, import maps ni `deno.json` que la CLI no pueda recuperar. Después de desplegar, configurá manualmente los secretos y verificá las rutas y JWT de las funciones. **No se garantiza un clon 1:1.**
+En la aplicación las credenciales se pasan al proceso mediante variables de entorno, no como argumentos de la línea de comandos. La conexión y el nombre del archivo se construyen con los valores ingresados.
 
-## Navegación simplificada
+Con **solo PostgreSQL** se descarga directamente un `.dump`. Después de generarlo, podés tildar **Exportar como SQL legible**:
 
-El sidebar mantiene **Nuevo respaldo** y **Restaurar respaldo**, sin sección independiente de funciones. En **Nuevo respaldo**, los checks PostgreSQL y Edge Functions deciden qué incluir (solo PostgreSQL produce `.dump`; Edge Functions solas o combinadas producen `.zip`). El token es obligatorio únicamente cuando se incluyen funciones.
+```powershell
+pg_restore -f backup.sql -F c --no-owner backup.dump
+```
 
-En **Restaurar respaldo**, el selector **Base de datos (.dump) / Edge Functions (.zip)** permite elegir el tipo de archivo y los datos de destino adecuados. La restauración PostgreSQL y el despliegue de funciones siguen siendo operaciones separadas con confirmación explícita, pero comparten una sola sección del sidebar.
+Esta conversión utiliza el respaldo ya creado, no vuelve a consultar Supabase y **conserva el `.dump` original**. El `.sql` es útil para inspeccionar la estructura y los datos; para restaurar se recomienda el `.dump` custom.
 
+### Respaldo de Edge Functions
 
-### CLI local en Windows y respaldo parcial
+Cuando marcás **Edge Functions**, el backend utiliza la CLI de Supabase y el token personal:
 
-La CLI instalada con npm se ejecuta mediante el binario de plataforma en node_modules. Si se activa PostgreSQL + Edge Functions y falla la descarga de funciones, se conserva el dump en un ZIP parcial con manifiesto y advertencia. Verificá la instalación usando `npx --no-install supabase --version` después de `npm install`.
+```powershell
+supabase functions download --remote=PROJECT_REF_ORIGEN --use-api
+```
+
+Podés seleccionar **solo Edge Functions** o **PostgreSQL + Edge Functions**. Si se incluyen funciones, el resultado se empaqueta en un ZIP, con un manifiesto que describe los componentes incluidos. El contenido esperado es similar a:
+
+```text
+supabase_backup_PROJECT_REF_FECHA.zip
+├── database.dump                 # Si se seleccionó PostgreSQL
+├── manifest.json
+└── supabase/
+    ├── config.toml
+    └── functions/
+        ├── funcion-a/
+        │   └── index.ts
+        └── funcion-b/
+            └── index.ts
+```
+
+La estructura de cada función puede variar. **Los secrets, los archivos de Storage y ciertas configuraciones auxiliares de funciones no se incluyen automáticamente.**
+
+## Guía: restaurar un respaldo
+
+Entrá a **Restaurar respaldo** y elegí el tipo de archivo.
+
+### Restaurar PostgreSQL (.dump)
+
+1. Seleccioná **Base de datos (.dump)** y adjuntá el archivo custom exportado (límite de carga configurado: **2 GB**).
+2. Completá **Project Ref, host, puerto, usuario y contraseña del proyecto de destino**.
+3. Seleccioná **Restaurar respaldo** y confirmá escribiendo exactamente el Project Ref del destino.
+4. El servidor valida el archivo con `pg_restore --list` y ejecuta la restauración:
+
+```powershell
+$env:PGPASSWORD = 'CONTRASEÑA_DE_LA_BD_DESTINO'
+$env:PGSSLMODE = 'require'
+
+pg_restore `
+  -h HOST_DESTINO `
+  -p 6543 `
+  -U postgres.PROJECT_REF_DESTINO `
+  -d postgres `
+  --clean --if-exists `
+  --no-owner --no-privileges `
+  --jobs 4 `
+  --verbose `
+  "respaldo.dump"
+```
+
+**Atención:** `--clean --if-exists` puede eliminar y recrear objetos existentes. Probalo primero en un **proyecto nuevo o descartable**. No es una operación transaccional reversible y un error puede dejar cambios parciales.
+
+Las restauraciones en Supabase pueden mostrar errores de permisos sobre extensiones, event triggers u objetos administrados que requieren superusuario. Si `pg_restore` devuelve un código distinto de cero, la aplicación señala **error**, aunque algunas tablas y usuarios ya estén presentes. **No des por verificada una restauración solo porque aparecen tablas:** revisá filas, funciones SQL, relaciones, RLS, Auth y el funcionamiento real de la aplicación.
+
+### Restaurar Edge Functions (.zip)
+
+1. Seleccioná **Edge Functions (.zip)** dentro de **Restaurar respaldo**.
+2. Adjuntá el ZIP generado por esta herramienta (límite de carga configurado: **120 MB**).
+3. Ingresá Project Ref y un Access Token con permisos de despliegue en el proyecto de destino.
+4. Confirmá el Project Ref antes de publicar las funciones.
+
+El backend extrae las funciones, valida el archivo y ejecuta un despliegue equivalente a:
+
+```powershell
+supabase functions deploy --remote=PROJECT_REF_DESTINO --use-api --yes
+```
+
+El despliegue **puede actualizar funciones existentes del mismo nombre**. No utiliza `--prune`, por lo que no intenta borrar las demás funciones del proyecto de destino. Después deberás configurar manualmente los secrets y verificar las opciones de autenticación/JWT y demás dependencias del código.
+
+## Estados y archivos temporales
+
+- Los trabajos muestran actividad real de `pg_dump --verbose`, `pg_restore --verbose` y, cuando corresponde, Supabase CLI.
+- Los estados de respaldo pueden ser **en curso**, **completado**, **parcial** o **fallido**; el porcentaje exacto durante las operaciones de PostgreSQL es desconocido, así que se utiliza un loader indeterminado.
+- Los archivos de respaldo se crean bajo el directorio temporal del sistema operativo: `os.tmpdir()/supabase-backup-manager` (en Windows, habitualmente bajo `%TEMP%`), **fuera del repositorio y de carpetas sincronizadas con OneDrive**.
+- El servidor comprueba el archivo final antes de ofrecer su descarga y lo transmite por HTTP.
+- Al iniciar, se eliminan respaldos temporales `.dump`, `.zip` y `.sql` de más de **24 horas**. Los trabajos se almacenan en memoria: no hay historial persistente ni recuperación de trabajos al reiniciar.
+
+## Estructura del repositorio
+
+```text
+supabase-buckup-generate/
+├── client/
+│   ├── public/
+│   │   └── favicon.svg
+│   ├── src/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   ├── pages/
+│   │   │   ├── RestoreWorkspace.tsx
+│   │   │   ├── RestorePage.tsx
+│   │   │   └── FunctionsPage.tsx
+│   │   ├── services/
+│   │   ├── App.tsx
+│   │   └── index.css
+│   └── package.json
+├── server/
+│   ├── src/
+│   │   ├── routes/
+│   │   │   ├── backups.ts
+│   │   │   ├── restore.ts
+│   │   │   └── functions-deploy.ts
+│   │   ├── services/
+│   │   │   ├── database.ts
+│   │   │   ├── backup.ts
+│   │   │   ├── restore.ts
+│   │   │   ├── edge-functions.ts
+│   │   │   ├── functions-deploy.ts
+│   │   │   └── supabase-cli.ts
+│   │   └── index.ts
+│   └── package.json
+├── package.json
+└── README.md
+```
+
+## Solución de problemas frecuentes
+
+| Problema | Qué comprobar |
+| --- | --- |
+| `spawn supabase ENOENT` | Ejecutá `npm install` desde la raíz, verificá `npx --no-install supabase --version` y reiniciá `npm run dev`. |
+| `Failed to fetch` o errores JSON | Comprobá que Express responde en `http://127.0.0.1:4174/api/health` y revisá la terminal del backend. |
+| `pg_dump` o `pg_restore` no encontrados | Instalá las herramientas cliente PostgreSQL y agregalas al `PATH` de Windows. |
+| No conecta a Supabase | Revisá la contraseña, host, usuario, puerto y método de conexión en **Connect**. |
+| Restauración con errores de superusuario | Algunos objetos administrados por Supabase no son restaurables con privilegios de usuario normal; verificá la copia y utilizá un proyecto de pruebas. |
+| ZIP parcial | PostgreSQL terminó, pero falló Edge Functions. Leé `manifest.json` y el aviso del panel antes de usarlo. |
+| Despliegue en Vercel con `STATIC_BUILD_NO_OUT_DIR` | Vite genera `client/dist`, no `dist` en la raíz; corregir eso solo publica el frontend, **no habilita el backend local**. |
+
+## Seguridad y limitaciones
+
+- **Uso local exclusivamente.** La API no dispone de un sistema de autenticación para exponerse públicamente, y ejecuta operaciones privilegiadas y potencialmente destructivas. No publiques el backend tal como está en Vercel ni lo abras a internet.
+- Las contraseñas y tokens se reciben temporalmente en el proceso Node.js para ejecutar las operaciones. **No se guardan intencionadamente en GitHub ni se incluyen en los respaldos.**
+- El ZIP y el dump **no representan una copia 1:1 de toda la plataforma Supabase**: faltan, entre otros, archivos físicos de Storage, secrets, ajustes externos de Auth/SMTP y determinadas configuraciones de Edge Functions.
+- No envíes tokens, contraseñas, dumps ni ZIPs a repositorios públicos. Tratá los backups como información sensible.
+- Verificá las restauraciones en un proyecto de pruebas y comprobá que la aplicación funciona antes de utilizar una base migrada.
+- Esta herramienta no reemplaza una estrategia de backups automatizados, retención segura, cifrado y pruebas periódicas de recuperación.
+
+## Documentación oficial
+
+- [Supabase: migración, backup y restore](https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore)
+- [Supabase: métodos de conexión a PostgreSQL](https://supabase.com/docs/guides/database/connecting-to-postgres)
+- [Supabase CLI](https://supabase.com/docs/reference/cli/introduction)
+- [Supabase Edge Functions](https://supabase.com/docs/guides/functions)
+- [Vite](https://vite.dev/guide/)
+
+---
+
+Desarrollado como herramienta local de respaldo y restauración de proyectos Supabase. ⚡
