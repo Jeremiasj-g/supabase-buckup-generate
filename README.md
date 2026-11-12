@@ -77,6 +77,46 @@ Invoke-RestMethod http://127.0.0.1:4174/api/health
 
 Si actualizás dependencias o cambian servicios del backend, detené la aplicación con `Ctrl + C`, ejecutá `npm install` si corresponde y volvé a iniciar `npm run dev`.
 
+## Cómo obtener los datos de conexión en Supabase
+
+Para completar los formularios de **Nuevo respaldo** y **Restaurar respaldo (PostgreSQL)** utilizá los datos del proyecto correspondiente: **origen** para respaldar y **destino** para restaurar.
+
+1. Entrá a [Supabase Dashboard](https://supabase.com/dashboard), abrí el proyecto y hacé clic en **Connect**.
+2. En la ventana **Connect to your project**, seleccioná la pestaña **Direct** (Connection string; como en la captura del proyecto).
+3. En **Connection Method** seleccioná **Transaction pooler**.
+4. En **Type** elegí **URI** y copiá los datos que te muestre Supabase. Si la URI aparece con un marcador de contraseña, usá la contraseña real de PostgreSQL de ese proyecto (no pegues la URI ni el marcador en el campo de contraseña).
+5. Completá los campos según la correspondencia indicada abajo. No inventes un host de otra región ni uses valores de otro proyecto.
+
+Ejemplo **ficticio** de una URI para ubicar cada componente (sin credenciales reales):
+
+```text
+postgresql://postgres.abcdefghijklmnopqrst:TU_PASSWORD@aws-1-us-east-2.pooler.supabase.com:6543/postgres?sslmode=require
+```
+
+| Campo del formulario | De dónde sale |
+| --- | --- |
+| **Project Ref** | Código de 20 letras visible en la URL del proyecto (`/project/...`). También forma parte del usuario del pooler. |
+| **Host PostgreSQL** | Dominio después de `@` y antes de `:6543`; copialo de **Connect**, porque cambia según la región del proyecto. |
+| **Puerto** | `6543` si elegiste **Transaction pooler**. |
+| **Usuario PostgreSQL** | Usuario de la URI, normalmente `postgres.PROJECT_REF`. |
+| **Contraseña PostgreSQL** | Contraseña de la base de datos de ese proyecto, no la contraseña de tu cuenta de Supabase. |
+| **Base de datos** | `postgres`, configurada automáticamente en la aplicación. |
+| **SSL** | La aplicación establece `PGSSLMODE=require` de manera automática. |
+
+**Importante:** estos pasos corresponden al método que venimos utilizando y probando (`Transaction pooler`, puerto `6543`). Si elegís **Direct connection** o **Session pooler**, tendrás que copiar el host, usuario y puerto específicos de esa modalidad. No confundas la pestaña superior **Direct** con la opción interna **Direct connection**.
+
+### Cómo crear un Supabase Access Token para Edge Functions
+
+El Access Token **no se obtiene desde Connect**. Únicamente se solicita cuando marcás **Edge Functions** para respaldarlas o cuando vas a restaurarlas.
+
+1. Abrí [Account → Access Tokens](https://supabase.com/dashboard/account/tokens).
+2. Hacé clic en **Generate new token** y elegí el nombre, alcance y permisos necesarios para la operación: lectura para respaldar funciones y permisos de despliegue para restaurarlas.
+3. Generá el token y **copialo inmediatamente**: Supabase solo muestra el valor completo en ese momento.
+4. Pegalo en el campo **Supabase Access Token** de la aplicación local. No uses la **anon key** ni la **service_role key**.
+5. Si perdiste el valor completo, deberás crear otro token; revocá los que ya no utilices.
+
+**Seguridad:** no incluyas contraseñas, URIs completas con contraseña ni Access Tokens en capturas, chats públicos o repositorios.
+
 ## Guía: generar un respaldo
 
 Abrí **Nuevo respaldo** y completá los datos del **proyecto de origen**:
