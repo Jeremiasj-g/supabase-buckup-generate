@@ -116,3 +116,8 @@ Supabase CLI 3.1.0 se declara como dependencia de desarrollo del workspace: corr
 El sidebar mantiene **Nuevo respaldo** y **Restaurar respaldo**, sin sección independiente de funciones. En **Nuevo respaldo**, los checks PostgreSQL y Edge Functions deciden qué incluir (solo PostgreSQL produce `.dump`; Edge Functions solas o combinadas producen `.zip`). El token es obligatorio únicamente cuando se incluyen funciones.
 
 En **Restaurar respaldo**, el selector **Base de datos (.dump) / Edge Functions (.zip)** permite elegir el tipo de archivo y los datos de destino adecuados. La restauración PostgreSQL y el despliegue de funciones siguen siendo operaciones separadas con confirmación explícita, pero comparten una sola sección del sidebar.
+
+
+### CLI local en Windows y respaldo parcial
+
+La CLI instalada con npm se ejecuta mediante el binario de plataforma en node_modules. Si se activa PostgreSQL + Edge Functions y falla la descarga de funciones, se conserva el dump en un ZIP parcial con manifiesto y advertencia. Verificá la instalación usando `npx --no-install supabase --version` después de `npm install`.

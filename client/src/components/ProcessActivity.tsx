@@ -3,7 +3,7 @@ import { Activity, Clock3, Database, LoaderCircle } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 
 type JobActivity = {
- state: 'queued'|'running'|'completed'|'failed';
+ state: 'queued'|'running'|'completed'|'partial'|'failed';
  step: string;
  logs: string[];
  activityCount?: number;

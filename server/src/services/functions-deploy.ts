@@ -3,7 +3,7 @@ import { dirname, join, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import unzipper from 'unzipper';
-import { run } from './database.js';
+import { runSupabase } from './supabase-cli.js';
 
 export type FunctionJob = {
  id:string; state:'queued'|'running'|'completed'|'failed';step:string;
@@ -68,7 +68,7 @@ export function startFunctionsDeploy(input:{projectRef:string;token:string},zipF
    job.step='Desplegando '+names.length+' funciones en el proyecto de destino';
    // --yes solo tras confirmación explícita del project ref por parte del usuario.
    // No usar --prune: jamás borrar funciones remotas no incluidas en el ZIP.
-   await run('supabase',['functions','deploy','--remote='+input.projectRef,'--use-api','--yes'],{
+   await runSupabase(['functions','deploy','--remote='+input.projectRef,'--use-api','--yes'],{
     cwd:directory,env:{SUPABASE_ACCESS_TOKEN:input.token},timeout:30*60*1000,
     onLine:line=>log(job,line),
    });

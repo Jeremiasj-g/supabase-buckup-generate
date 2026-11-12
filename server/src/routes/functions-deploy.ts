@@ -3,7 +3,7 @@ import multer from 'multer';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { rm } from 'node:fs/promises';
-import { available } from '../services/database.js';
+import { supabaseAvailable } from '../services/supabase-cli.js';
 import { functionJob, functionUploadFolder, prepareFunctionUploads, startFunctionsDeploy } from '../services/functions-deploy.js';
 
 const router=Router();
@@ -33,7 +33,7 @@ router.post('/functions/deploy',async(req,res)=>{
   if(!req.file){res.status(400).json({error:'Seleccioná el archivo ZIP.'});return;}
   const parsed=schema.safeParse(req.body);
   if(!parsed.success){await rm(req.file.path,{force:true});res.status(400).json({error:parsed.error.issues.map(x=>x.message).join(' ')});return;}
-  if(!(await available('supabase'))){await rm(req.file.path,{force:true});res.status(503).json({error:'Falta Supabase CLI. Ejecutá npm install en el proyecto y reiniciá el servidor.'});return;}
+  if(!(await supabaseAvailable())){await rm(req.file.path,{force:true});res.status(503).json({error:'Falta Supabase CLI. Ejecutá npm install en el proyecto y reiniciá el servidor.'});return;}
   try{
    const job=startFunctionsDeploy(parsed.data,req.file.path);
    res.status(202).json(job);

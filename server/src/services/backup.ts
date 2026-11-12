@@ -16,7 +16,7 @@ export type Input = Connection & {
 
 export type Job = {
   id: string;
-  state: 'queued' | 'running' | 'completed' | 'failed';
+  state: 'queued' | 'running' | 'completed' | 'partial' | 'failed';
   step: string;
   progress: number;
   logs: string[];
@@ -29,6 +29,7 @@ export type Job = {
   formatting?: boolean;
   activityCount: number;
   currentOperation?: string;
+  warning?: string;
 };
 
 const jobs = new Map<string, Job>();
@@ -132,15 +133,29 @@ async function perform(job: Job, input: Input) {
       await copyFile(join(workFolder, dumpName), outputPath);
       job.filename = dumpName;
     } else {
+      let functionsError: string | undefined;
       if (input.functions) {
         advance(job, 'Descargando Edge Functions', 69);
-        await downloadFunctions(input.projectRef, input.accessToken, workFolder);
-        advance(job, 'Edge Functions descargadas', 88);
+        try {
+          const downloaded = await downloadFunctions(input.projectRef, input.accessToken, workFolder, line => {
+            job.activityCount++;
+            job.currentOperation=line.slice(0,300);
+            job.logs.push(job.currentOperation);
+            if(job.logs.length>35)job.logs.shift();
+          });
+          advance(job, 'Edge Functions descargadas: ' + downloaded.join(', '), 88);
+        } catch (failure) {
+          functionsError = failure instanceof Error ? failure.message : String(failure);
+          advance(job, 'No se pudieron descargar Edge Functions: ' + functionsError, 88);
+          if(!input.database) throw failure;
+        }
       }
       await writeFile(join(workFolder, 'manifest.json'), JSON.stringify({
         projectRef: input.projectRef,
         createdAt: new Date().toISOString(),
-        components: { database: input.database, functions: input.functions },
+        components: { database: input.database, functions: input.functions && !functionsError },
+        status: functionsError ? 'partial' : 'complete',
+        warning: functionsError ? 'Edge Functions no incluidas: ' + functionsError : undefined,
         notIncluded: ['Storage objects', 'Secrets', 'Auth external settings'],
       }, null, 2));
 
@@ -148,14 +163,15 @@ async function perform(job: Job, input: Input) {
       outputPath = join(backupRoot, job.id + '.zip');
       job.filename = 'supabase_backup_' + input.projectRef + '_' + timestamp() + '.zip';
       await zipFolder(workFolder, outputPath);
+      if(functionsError)job.warning='PostgreSQL se respaldó, pero Edge Functions falló: '+functionsError;
     }
 
     // Nunca avisar 100% hasta comprobar que el archivo descargable existe.
     const size = await verifyFile(outputPath);
     job.path = outputPath;
     job.fileSize = size;
-    job.state = 'completed';
-    advance(job, 'Archivo listo para descargar', 100);
+    job.state = job.warning ? 'partial' : 'completed';
+    advance(job, job.warning ? 'ZIP parcial disponible para descargar' : 'Archivo listo para descargar', 100);
   } catch (error) {
     job.state = 'failed';
     job.error = error instanceof Error ? error.message : String(error);

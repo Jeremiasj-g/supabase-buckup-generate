@@ -3,6 +3,7 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { z } from 'zod';
 import { available, testDb } from '../services/database.js';
+import { supabaseAvailable } from '../services/supabase-cli.js';
 import { start, findJob, publicJob, prepareSql } from '../services/backup.js';
 
 const router = Router();
@@ -31,7 +32,7 @@ function fail(res: import('express').Response, error: unknown) {
 
 router.get('/health', async (_req, res) => {
   const [pgDump, pgRestore, psql, supabase] = await Promise.all(
-    ['pg_dump', 'pg_restore', 'psql', 'supabase'].map(available)
+    [available('pg_dump'), available('pg_restore'), available('psql'), supabaseAvailable()]
   );
   res.json({ ok: pgDump && pgRestore, pgDump, pgRestore, psql, supabase });
 });
@@ -40,7 +41,7 @@ router.post('/preflight', async (req, res) => {
   try {
     const input = parse(req.body);
     const message = input.database ? await testDb(input) : 'Respaldo sin PostgreSQL.';
-    if (input.functions && !(await available('supabase'))) {
+    if (input.functions && !(await supabaseAvailable())) {
       throw new Error('Supabase CLI no está instalada.');
     }
     res.json({ ok: true, message: message + (input.functions ? ' Supabase CLI detectada.' : '') });
@@ -82,7 +83,7 @@ router.post('/backups/:id/format-sql', async (req, res) => {
 
 router.get('/backups/:id/download', async (req, res) => {
   const job = findJob(String(req.params.id));
-  if (!job || job.state !== 'completed' || !job.path || !job.filename) {
+  if (!job || !['completed','partial'].includes(job.state) || !job.path || !job.filename) {
     res.status(404).json({ error: 'El respaldo no está disponible. Generá uno nuevo.' });
     return;
   }
